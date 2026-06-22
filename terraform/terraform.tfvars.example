@@ -1,0 +1,3 @@
+project_id  = "REMPLACER-mon-projet-gcp"
+region      = "europe-west1"
+github_repo = "REMPLACER-owner/REMPLACER-repo"

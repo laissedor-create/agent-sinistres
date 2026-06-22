@@ -1,0 +1,56 @@
+name: Deploy
+
+on:
+  push:
+    branches: [main]
+
+# Requis pour l'authentification OIDC sans clé (Workload Identity Federation).
+permissions:
+  id-token: write
+  contents: read
+
+env:
+  REGION: europe-west1
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Authentification GCP (sans clé)
+        id: auth
+        uses: google-github-actions/auth@v2
+        with:
+          project_id: ${{ secrets.GCP_PROJECT_ID }}
+          workload_identity_provider: ${{ secrets.WIF_PROVIDER }}
+          service_account: ${{ secrets.WIF_SERVICE_ACCOUNT }}
+
+      - uses: google-github-actions/setup-gcloud@v2
+
+      - name: Configurer Docker
+        run: gcloud auth configure-docker ${REGION}-docker.pkg.dev --quiet
+
+      - name: Build + push + deploy de l'agent
+        run: |
+          IMAGE="${REGION}-docker.pkg.dev/${{ secrets.GCP_PROJECT_ID }}/agent-sinistres/agent:${GITHUB_SHA::8}"
+          docker build -t "$IMAGE" ./agent
+          docker push "$IMAGE"
+          gcloud run deploy agent-sinistres \
+            --image "$IMAGE" \
+            --region ${REGION} \
+            --service-account agent-runtime@${{ secrets.GCP_PROJECT_ID }}.iam.gserviceaccount.com \
+            --set-env-vars GOOGLE_CLOUD_PROJECT=${{ secrets.GCP_PROJECT_ID }},GOOGLE_CLOUD_LOCATION=${REGION},BQ_DATASET=assurance \
+            --allow-unauthenticated
+
+      - name: Build + push + deploy de l'ingestion
+        run: |
+          IMAGE="${REGION}-docker.pkg.dev/${{ secrets.GCP_PROJECT_ID }}/agent-sinistres/ingest:${GITHUB_SHA::8}"
+          docker build -t "$IMAGE" ./ingest
+          docker push "$IMAGE"
+          gcloud run deploy ingest-sinistres \
+            --image "$IMAGE" \
+            --region ${REGION} \
+            --no-allow-unauthenticated \
+            --service-account agent-runtime@${{ secrets.GCP_PROJECT_ID }}.iam.gserviceaccount.com \
+            --set-env-vars GOOGLE_CLOUD_PROJECT=${{ secrets.GCP_PROJECT_ID }},BQ_DATASET=assurance,DOCAI_LOCATION=eu,DOCAI_PROCESSOR_ID=${{ secrets.DOCAI_PROCESSOR_ID }}
