@@ -1,15 +1,17 @@
 """Service Cloud Run déclenché par Eventarc quand un PDF arrive dans le bucket.
 
-Reçoit l'événement Cloud Storage (object.finalized), télécharge le PDF,
-l'envoie à Document AI, puis insère la ligne extraite dans BigQuery.
+Reçoit l'événement Cloud Storage, télécharge le PDF, l'envoie à Document AI,
+insère la ligne dans BigQuery, puis appelle l'agent pour obtenir une décision.
 """
 from __future__ import annotations
 
 import os
 import tempfile
 
-import process_document as docai
+import requests
 from fastapi import FastAPI, Request
+
+import process_document as docai
 
 app = FastAPI(title="Ingestion sinistres")
 
@@ -17,6 +19,7 @@ _PROJECT = os.environ["GOOGLE_CLOUD_PROJECT"]
 _DATASET = os.environ.get("BQ_DATASET", "assurance")
 _DOCAI_LOCATION = os.environ.get("DOCAI_LOCATION", "eu")
 _PROCESSOR_ID = os.environ["DOCAI_PROCESSOR_ID"]
+_AGENT_URL = os.environ.get("AGENT_URL", "")
 
 
 @app.get("/")
@@ -26,7 +29,6 @@ def sante() -> dict:
 
 @app.post("/")
 async def sur_depot_pdf(request: Request) -> dict:
-    # Eventarc livre l'événement GCS en JSON : { bucket, name, ... }
     event = await request.json()
     bucket = event.get("bucket")
     nom = event.get("name", "")
@@ -36,26 +38,45 @@ async def sur_depot_pdf(request: Request) -> dict:
 
     from google.cloud import bigquery, storage
 
-    # 1. Télécharger le PDF
     with tempfile.NamedTemporaryFile(suffix=".pdf", delete=False) as tmp:
         storage.Client(project=_PROJECT).bucket(bucket).blob(nom).download_to_filename(tmp.name)
         chemin = tmp.name
 
-    # 2. Extraire les champs via Document AI
     res = docai.extraire(_PROJECT, _DOCAI_LOCATION, _PROCESSOR_ID, chemin)
     sinistre = docai.champs_vers_sinistre(res["champs"])
 
     if not sinistre.get("id_sinistre") or not sinistre.get("num_police"):
         return {"erreur": "champs obligatoires manquants", "champs": res["champs"]}
 
-    # 3. Insérer dans BigQuery
     client = bigquery.Client(project=_PROJECT)
     table_id = f"{_PROJECT}.{_DATASET}.sinistres"
     errors = client.insert_rows_json(table_id, [sinistre])
     if errors:
         return {"erreur": str(errors)}
 
-    return {"ok": True, "id_sinistre": sinistre["id_sinistre"], "fichier": nom}
+    decision = None
+    if _AGENT_URL:
+        try:
+            reponse = requests.post(
+                f"{_AGENT_URL}/instruire",
+                json={
+                    "num_police": sinistre["num_police"],
+                    "id_sinistre": sinistre["id_sinistre"],
+                },
+                timeout=120,
+            )
+            reponse.raise_for_status()
+            decision = reponse.json().get("decision")
+            print(f"DECISION pour {sinistre['id_sinistre']} :\n{decision}")
+        except Exception as e:
+            print(f"Erreur appel agent : {e}")
+
+    return {
+        "ok": True,
+        "id_sinistre": sinistre["id_sinistre"],
+        "fichier": nom,
+        "decision_obtenue": decision is not None,
+    }
 
 
 if __name__ == "__main__":
