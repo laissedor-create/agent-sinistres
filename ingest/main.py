@@ -8,9 +8,8 @@ from __future__ import annotations
 import os
 import tempfile
 
-from fastapi import FastAPI, Request
-
 import process_document as docai
+from fastapi import FastAPI, Request
 
 app = FastAPI(title="Ingestion sinistres")
 
