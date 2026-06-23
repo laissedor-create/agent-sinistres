@@ -4,7 +4,6 @@ on:
   push:
     branches: [main]
 
-# Requis pour l'authentification OIDC sans clé (Workload Identity Federation).
 permissions:
   id-token: write
   contents: read
@@ -53,4 +52,4 @@ jobs:
             --region ${REGION} \
             --no-allow-unauthenticated \
             --service-account agent-runtime@${{ secrets.GCP_PROJECT_ID }}.iam.gserviceaccount.com \
-            --set-env-vars GOOGLE_CLOUD_PROJECT=${{ secrets.GCP_PROJECT_ID }},BQ_DATASET=assurance,DOCAI_LOCATION=eu,DOCAI_PROCESSOR_ID=${{ secrets.DOCAI_PROCESSOR_ID }}
+            --set-env-vars GOOGLE_CLOUD_PROJECT=${{ secrets.GCP_PROJECT_ID }},BQ_DATASET=assurance,DOCAI_LOCATION=eu,DOCAI_PROCESSOR_ID=${{ secrets.DOCAI_PROCESSOR_ID }},AGENT_URL=https://agent-sinistres-tf7xcadnra-ew.a.run.app
