@@ -60,9 +60,9 @@ def champs_vers_sinistre(champs: dict) -> dict:
         montant = 0.0
 
     return {
-        "id_sinistre": get("sinistre") or get("N° sinistre"),
+        "id_sinistre": get("N° sinistre", "N° de sinistre", "numero sinistre"),
         "num_police": get("police"),
-        "date_sinistre": get("Date du sinistre", "Date"),
+        "date_sinistre": get("Date du sinistre", "date du"),
         "nature": (get("Nature") or "").strip(),
         "montant": montant,
         "tiers": None if (get("Tiers") in (None, "aucun")) else get("Tiers"),
