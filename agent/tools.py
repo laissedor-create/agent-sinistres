@@ -11,6 +11,7 @@ google-genai s'en sert pour générer automatiquement le schéma des outils.
 from __future__ import annotations
 
 import datetime as dt
+import logging
 import os
 
 # Correspondance nature -> code de garantie (doit refléter generate_data.py).
@@ -53,13 +54,17 @@ def get_contrat(num_police: str) -> dict:
     """
     from google.cloud import bigquery
 
-    job = client.query(
-        query,
-        job_config=bigquery.QueryJobConfig(
-            query_parameters=[bigquery.ScalarQueryParameter("p", "STRING", num_police)]
-        ),
-    )
-    rows = list(job.result())
+    try:
+        job = client.query(
+            query,
+            job_config=bigquery.QueryJobConfig(
+                query_parameters=[bigquery.ScalarQueryParameter("p", "STRING", num_police)]
+            ),
+        )
+        rows = list(job.result())
+    except Exception as e:
+        logging.exception("ERREUR get_contrat")
+        return {"trouve": False, "erreur": str(e), "num_police": num_police}
     if not rows:
         return {"trouve": False, "num_police": num_police}
     r = dict(rows[0])
