@@ -8,7 +8,6 @@ Deux familles :
 Toutes les fonctions ont des annotations de type et une docstring : le SDK
 google-genai s'en sert pour générer automatiquement le schéma des outils.
 """
-from __future__ import annotations
 
 import datetime as dt
 import logging
