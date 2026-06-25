@@ -13,6 +13,7 @@ locals {
     "roles/aiplatform.user",
     "roles/documentai.apiUser",
     "roles/storage.objectViewer",
+    "roles/storage.objectAdmin",
   ]
 }
 
