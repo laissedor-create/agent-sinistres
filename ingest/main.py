@@ -45,19 +45,26 @@ def sante() -> dict:
     return {"status": "ok"}
 
 
+def _saut_page(c, y, hauteur):
+    if y < 72:
+        c.showPage()
+        c.setFont("Helvetica", 10)
+        return hauteur - 72
+    return y
+
+
 def _pdf_decision(sinistre, decision, chemin):
     c = canvas.Canvas(chemin, pagesize=A4)
-    largeur, hauteur = A4
+    _, hauteur = A4
     y = hauteur - 72
     c.setFont("Helvetica-Bold", 16)
     c.drawString(72, y, "DÉCISION D'INSTRUCTION DE SINISTRE")
     c.setFont("Helvetica", 11)
-    y -= 30
-    c.drawString(72, y, f"Sinistre : {sinistre.get('id_sinistre')}")
-    y -= 18
-    c.drawString(72, y, f"Police : {sinistre.get('num_police')}")
-    y -= 18
-    c.drawString(72, y, f"Nature : {sinistre.get('nature')}")
+    for label in [f"Sinistre : {sinistre.get('id_sinistre')}",
+                  f"Police : {sinistre.get('num_police')}",
+                  f"Nature : {sinistre.get('nature')}"]:
+        y -= 18
+        c.drawString(72, y, label)
     y -= 30
     c.setFont("Helvetica-Bold", 12)
     c.drawString(72, y, "Décision de l'agent :")
@@ -66,12 +73,13 @@ def _pdf_decision(sinistre, decision, chemin):
     for ligne_brute in (decision or "Aucune décision.").split("\n"):
         ligne = ligne_brute.replace("**", "").replace("*", "-")
         while len(ligne) > 95:
-            c.drawString(72, y, ligne[:95]); ligne = ligne[95:]; y -= 14
-            if y < 72:
-                c.showPage(); y = hauteur - 72; c.setFont("Helvetica", 10)
-        c.drawString(72, y, ligne); y -= 14
-        if y < 72:
-            c.showPage(); y = hauteur - 72; c.setFont("Helvetica", 10)
+            c.drawString(72, y, ligne[:95])
+            ligne = ligne[95:]
+            y -= 14
+            y = _saut_page(c, y, hauteur)
+        c.drawString(72, y, ligne)
+        y -= 14
+        y = _saut_page(c, y, hauteur)
     c.save()
 
 
