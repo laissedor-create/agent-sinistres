@@ -53,3 +53,15 @@ jobs:
             --no-allow-unauthenticated \
             --service-account agent-runtime@${{ secrets.GCP_PROJECT_ID }}.iam.gserviceaccount.com \
             --set-env-vars GOOGLE_CLOUD_PROJECT=${{ secrets.GCP_PROJECT_ID }},BQ_DATASET=assurance,DOCAI_LOCATION=eu,DOCAI_PROCESSOR_ID=${{ secrets.DOCAI_PROCESSOR_ID }},AGENT_URL=https://agent-sinistres-tf7xcadnra-ew.a.run.app
+
+      - name: Build + push + deploy du dashboard
+        run: |
+          IMAGE="${REGION}-docker.pkg.dev/${{ secrets.GCP_PROJECT_ID }}/agent-sinistres/dashboard:${GITHUB_SHA::8}"
+          docker build -t "$IMAGE" ./dashboard
+          docker push "$IMAGE"
+          gcloud run deploy dashboard-sinistres \
+            --image "$IMAGE" \
+            --region ${REGION} \
+            --allow-unauthenticated \
+            --service-account agent-runtime@${{ secrets.GCP_PROJECT_ID }}.iam.gserviceaccount.com \
+            --set-env-vars GOOGLE_CLOUD_PROJECT=${{ secrets.GCP_PROJECT_ID }},BQ_DATASET=assurance,BUCKET_SINISTRES=${{ secrets.GCP_PROJECT_ID }}-sinistres
